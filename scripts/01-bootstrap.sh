@@ -13,8 +13,13 @@ if ! docker ps | grep -q ceph-mon1; then
     exit 1
 fi
 
-echo "Step 1: Installing cephadm in mon1 container..."
+echo "Step 1: Installing Docker and cephadm in mon1 container..."
 docker exec ceph-mon1 bash -c "
+    # Install Docker CLI inside container
+    apt-get update -qq
+    apt-get install -y -qq docker.io curl
+    
+    # Download cephadm
     curl --silent --remote-name --location https://github.com/ceph/ceph/raw/quincy/src/cephadm/cephadm
     chmod +x cephadm
     mv cephadm /usr/local/bin/
