@@ -112,7 +112,19 @@ if [ ! -f ~/.ssh/authorized_keys ]; then
 fi
 
 # Ensure correct permissions on authorized_keys
+echo "  Setting permissions on authorized_keys..."
+# Remove any immutable attributes that might prevent modification
+chattr -i ~/.ssh/authorized_keys 2>/dev/null || true
+
+# Check if file is owned by root and fix it
+if [ "$(stat -c '%U' ~/.ssh/authorized_keys 2>/dev/null)" = "root" ]; then
+    echo "  File is owned by root, fixing ownership..."
+    sudo chown $USER:$USER ~/.ssh/authorized_keys
+fi
+
+# Set correct permissions
 chmod 600 ~/.ssh/authorized_keys
+print_status 0 "Permissions set correctly on authorized_keys"
 
 # Add public key to authorized_keys if not already there
 if ! grep -q "$(cat ~/.ssh/id_rsa.pub)" ~/.ssh/authorized_keys 2>/dev/null; then
