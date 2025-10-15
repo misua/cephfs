@@ -27,11 +27,17 @@ echo "Step 3: Listing available devices..."
 sudo cephadm shell -- ceph orch device ls
 
 echo ""
-echo "Step 4: Deploying OSDs on available devices..."
+echo "Step 4: Deploying OSDs manually on loop devices..."
 echo "Note: This may take a few minutes..."
 
-# Deploy OSDs using the OSD service specification
-sudo cephadm shell -- ceph orch apply osd --all-available-devices
+# Get the loop devices
+LOOP_DEVICES=$(losetup -a | grep ceph-osd | awk -F: '{print $1}')
+
+# Deploy OSDs manually on each loop device
+for DEVICE in $LOOP_DEVICES; do
+    echo "Creating OSD on $DEVICE..."
+    sudo cephadm shell -- ceph orch daemon add osd $(hostname):$DEVICE
+done
 
 echo ""
 echo "Step 5: Waiting for OSDs to be deployed (this may take 2-3 minutes)..."

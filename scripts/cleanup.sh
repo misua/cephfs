@@ -27,8 +27,33 @@ else
 fi
 
 echo ""
-echo "Step 3: Removing loop devices..."
-sudo losetup -a | grep ceph-osd | cut -d: -f1 | xargs -r sudo losetup -d
+echo "Step 3: Removing LVM volumes..."
+# Remove logical volumes
+for i in 1 2 3; do
+    if sudo lvs ceph-vg-$i/osd-lv-$i &>/dev/null; then
+        echo "  Removing LV: ceph-vg-$i/osd-lv-$i"
+        sudo lvremove -f ceph-vg-$i/osd-lv-$i
+    fi
+done
+
+# Remove volume groups
+for i in 1 2 3; do
+    if sudo vgs ceph-vg-$i &>/dev/null; then
+        echo "  Removing VG: ceph-vg-$i"
+        sudo vgremove -f ceph-vg-$i
+    fi
+done
+
+# Remove physical volumes and loop devices
+for i in 1 2 3; do
+    LOOP_DEV=$(sudo losetup -a | grep "ceph-osd-$i.img" | cut -d: -f1)
+    if [ -n "$LOOP_DEV" ]; then
+        echo "  Removing PV on $LOOP_DEV"
+        sudo pvremove -f $LOOP_DEV 2>/dev/null || true
+        echo "  Detaching loop device $LOOP_DEV"
+        sudo losetup -d $LOOP_DEV
+    fi
+done
 
 echo ""
 echo "Step 4: Removing OSD image files..."
@@ -38,6 +63,15 @@ echo ""
 echo "Step 5: Removing ceph directories..."
 sudo rm -rf /etc/ceph/*
 sudo rm -rf /var/lib/ceph/*
+
+echo ""
+echo "Step 6: Removing passwordless sudo configuration..."
+if [ -f /etc/sudoers.d/ceph-$USER ]; then
+    sudo rm -f /etc/sudoers.d/ceph-$USER
+    echo "  Removed /etc/sudoers.d/ceph-$USER"
+else
+    echo "  No passwordless sudo config found"
+fi
 
 echo ""
 echo "=== Cleanup Complete! ==="

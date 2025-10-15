@@ -155,8 +155,34 @@ else
 fi
 echo ""
 
-# 7. Check disk space
-echo "=== Step 7: Disk Space ==="
+# 7. Setup Passwordless Sudo
+echo "=== Step 7: Passwordless Sudo ==="
+if sudo -n true 2>&1 | grep -q "password is required"; then
+    # Passwordless sudo NOT configured
+    echo "  Configuring passwordless sudo for user $USER..."
+    echo "  This is required for cephadm bootstrap"
+    
+    SUDOERS_FILE="/etc/sudoers.d/ceph-$USER"
+    
+    # Create sudoers file
+    echo "$USER ALL=(ALL) NOPASSWD:ALL" | sudo tee $SUDOERS_FILE > /dev/null
+    sudo chmod 0440 $SUDOERS_FILE
+    
+    # Verify it works
+    if sudo -n true 2>&1 | grep -q "password is required"; then
+        print_status 1 "Failed to configure passwordless sudo"
+        echo "  Please add this line to /etc/sudoers manually:"
+        echo "  $USER ALL=(ALL) NOPASSWD:ALL"
+    else
+        print_status 0 "Passwordless sudo configured successfully"
+    fi
+else
+    print_status 0 "Passwordless sudo is already configured"
+fi
+echo ""
+
+# 8. Check disk space
+echo "=== Step 8: Disk Space ==="
 AVAILABLE=$(df -BG / | tail -1 | awk '{print $4}' | sed 's/G//')
 if [ "$AVAILABLE" -gt 10 ]; then
     print_status 0 "Sufficient disk space: ${AVAILABLE}GB available"
@@ -165,8 +191,8 @@ else
 fi
 echo ""
 
-# 8. Check for conflicting Ceph installations
-echo "=== Step 8: Conflicting Installations ==="
+# 9. Check for conflicting Ceph installations
+echo "=== Step 9: Conflicting Installations ==="
 if systemctl list-units --all | grep -q ceph; then
     print_status 1 "Found existing Ceph services"
     echo "  Run cleanup script first: ./scripts/cleanup.sh"
