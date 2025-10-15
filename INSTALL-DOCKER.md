@@ -1,36 +1,32 @@
-# Docker Installation Guide
+# Container Engine Installation Guide
 
-## 🐳 Install Docker on Ubuntu 24.04
+## 🐳 Install Podman or Docker for Cephadm
 
-You have `docker-compose-plugin` but not Docker Engine itself. Here's how to fix it:
+**Note:** Cephadm requires either Podman or Docker to manage Ceph containers. This guide covers both options.
 
-### Quick Install (Recommended)
+### Option 1: Install Podman (Recommended for Cephadm)
 
 ```bash
 # 1. Update package index
 sudo apt update
 
-# 2. Install Docker Engine and related packages
-sudo apt install -y docker.io docker-compose-v2
+# 2. Install Podman
+sudo apt install -y podman
 
-# 3. Start and enable Docker service
-sudo systemctl start docker
-sudo systemctl enable docker
+# 3. Verify installation
+podman --version
 
-# 4. Add your user to docker group (to run without sudo)
-sudo usermod -aG docker $USER
-
-# 5. Apply group changes (or logout/login)
-newgrp docker
-
-# 6. Verify installation
-docker --version
-docker compose version
+# 4. Test Podman
+podman run hello-world
 ```
 
-### Alternative: Official Docker Repository Method
+**Why Podman?**
+- Daemonless (more secure)
+- Rootless containers supported
+- Drop-in replacement for Docker
+- Preferred by cephadm
 
-If you prefer the latest version from Docker's official repo:
+### Option 2: Install Docker (Alternative)
 
 ```bash
 # 1. Remove old versions (if any)
@@ -79,56 +75,68 @@ docker run hello-world
 docker compose version
 ```
 
-## 🔧 Docker Compose v1 vs v2
+## 🔧 Cephadm Container Engine Requirements
 
-You're encountering the v2 syntax issue:
+**What cephadm needs:**
+- Container engine (Podman or Docker)
+- Ability to pull images from quay.io
+- Sufficient privileges to create containers
 
-### V1 (Old - Standalone Binary)
-```bash
-docker-compose up -d    # Hyphenated command
-```
-
-### V2 (New - Docker Plugin)
-```bash
-docker compose up -d    # Space, not hyphen
-```
-
-**Our setup uses V2 syntax** (`docker compose`), which is the modern standard.
+**Cephadm will:**
+- Automatically detect Podman or Docker
+- Pull Ceph container images
+- Create and manage Ceph daemon containers
+- Handle container lifecycle
 
 ## 🚀 After Installation
 
-Once Docker is installed, navigate to the ceph-test directory and start:
+Once Podman/Docker is installed, run the prerequisites script:
 
 ```bash
 cd /home/sab/Desktop/DEVOPS-INTERVIEWS-SITUATIONALS/ceph-test
-docker compose up -d
+./scripts/00-prerequisites.sh
 ```
+
+This will verify your container engine is working correctly.
 
 ## 🐛 Troubleshooting
 
-### Permission Denied Error
+### Podman Permission Issues
 ```bash
-# If you get "permission denied" errors:
+# Podman runs rootless by default, no special permissions needed
+# If issues occur, try:
+podman system reset
+```
+
+### Docker Permission Denied
+```bash
+# If using Docker and get "permission denied":
 sudo usermod -aG docker $USER
 newgrp docker
-
-# Or logout and login again
 ```
 
-### Docker Service Not Running
+### Container Engine Not Found
 ```bash
-sudo systemctl start docker
-sudo systemctl status docker
-```
+# Verify installation
+which podman || which docker
 
-### Check Docker Group
-```bash
-groups $USER
-# Should show: ... docker ...
+# Check version
+podman --version
+# or
+docker --version
 ```
 
 ## 📝 Quick Reference
 
+### Podman Commands
+| Command | Purpose |
+|---------|---------|  
+| `podman --version` | Check Podman version |
+| `podman ps` | List running containers |
+| `podman images` | List downloaded images |
+| `podman system prune -a` | Clean up unused images |
+
+### Docker Commands
 | Command | Purpose |
 |---------|---------|
 | `docker --version` | Check Docker version |
@@ -139,4 +147,4 @@ groups $USER
 
 ---
 
-**Next Step**: After Docker is installed, return to the main README and start with `docker compose up -d`
+**Next Step**: After Podman/Docker is installed, run `./scripts/00-prerequisites.sh` to verify everything is ready

@@ -3,8 +3,8 @@
 ## 📊 Actual Space Usage
 
 ### Standard Configuration (Current)
-- **OSD Storage**: 3 OSDs × 2GB = 6GB
-- **Container Images**: ~1.5GB (Ceph v18 image)
+- **OSD Storage**: 3 OSDs × 2GB = 6GB (LVM volumes)
+- **Container Images**: ~1.5GB (Ceph v17 Quincy image)
 - **Metadata & Logs**: ~500MB
 - **Total**: ~8GB actual usage
 
@@ -16,30 +16,32 @@ If you want to go even smaller:
 ## 🔧 How to Make It Even Smaller
 
 ### Option 1: Reduce to 1GB per OSD
-Edit `scripts/03-deploy-osds.sh` line 16:
+Edit `scripts/03-deploy-osds-lvm.sh` line 17:
 ```bash
 # Change from:
-dd if=/dev/zero of=/var/lib/ceph/osd-device.img bs=1M count=2048
+sudo dd if=/dev/zero of=/var/lib/ceph-osd-$i.img bs=1M count=2048
 
 # To:
-dd if=/dev/zero of=/var/lib/ceph/osd-device.img bs=1M count=1024
+sudo dd if=/dev/zero of=/var/lib/ceph-osd-$i.img bs=1M count=1024
 ```
 
 ### Option 2: Use Only 2 OSDs
-Edit `docker-compose.yml` - comment out or remove the `osd3` service.
-
-Then in `scripts/02-add-hosts.sh`, remove the line:
+Edit `scripts/03-deploy-osds-lvm.sh`, change the loop:
 ```bash
-add_host "osd3" "172.20.0.22"
+# Change from:
+for i in 1 2 3; do
+
+# To:
+for i in 1 2; do
 ```
 
 **Result**: ~5GB total usage
 
 ### Option 3: Ultra-Minimal (Not Recommended)
-- 2 monitors instead of 3
+- Single monitor/manager (already the case)
 - 2 OSDs with 512MB each
 - **Result**: ~3GB total usage
-- **Warning**: Less realistic for learning Ceph's distributed nature
+- **Warning**: Too small for realistic testing
 
 ## 💡 Why 2GB per OSD?
 
@@ -69,7 +71,11 @@ During testing:       ~8-9GB (depends on your test data)
 To reclaim all space:
 ```bash
 ./scripts/cleanup.sh
-docker system prune -a  # Remove unused images too
+
+# Optional: Remove Ceph container images
+sudo podman system prune -a
+# or
+sudo docker system prune -a
 ```
 
 ---

@@ -81,22 +81,22 @@ Password: admin123
 This creates storage devices and deploys OSDs:
 
 ```bash
-./scripts/03-deploy-osds.sh
+./scripts/03-deploy-osds-lvm.sh
 ```
 
 **What it does:**
-- Creates 3 x 2GB loop devices on your host
-- Tells cephadm to deploy OSDs on these devices
+- Creates 3 x 2GB LVM volumes on your host
+- Tells cephadm to deploy OSDs on these LVM volumes
 - Waits for OSDs to come online
 
 **Duration:** 3-5 minutes
 
 **Check status:**
 ```bash
-./scripts/status.sh
+sudo cephadm shell -- ceph -s
 ```
 
-Look for `HEALTH_OK` before proceeding.
+Look for `osd: 3 osds: 3 up, 3 in` before proceeding.
 
 ---
 
@@ -146,20 +146,20 @@ cat /mnt/cephfs/test.txt
 
 ### Check Cluster Status
 ```bash
-./scripts/status.sh
+sudo cephadm shell -- ceph -s
+sudo cephadm shell -- ceph osd tree
 ```
 
 ### Access Ceph CLI
 ```bash
-./scripts/shell.sh
-# or directly:
 sudo cephadm shell
 ```
 
 ### View Dashboard
-Open in browser: `https://YOUR_IP:8443`
+Open in browser: `https://192.168.1.215:8443`
 - Username: `admin`
 - Password: `admin123`
+- Accept self-signed certificate warning
 
 ### Common Commands
 ```bash

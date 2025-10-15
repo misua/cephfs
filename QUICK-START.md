@@ -5,68 +5,66 @@ Get a working CephFS cluster in ~15 minutes.
 
 ## ⚡ Fast Track
 
-### 1. Start Containers (1 min)
+### 1. Prerequisites Check (1-2 min)
 ```bash
 cd ceph-test
-docker compose up -d
-docker compose ps  # Verify all 6 containers are running
-```
-
-### 2. Bootstrap Cluster (2-3 min)
-```bash
 chmod +x scripts/*.sh
+./scripts/00-prerequisites.sh
+```
+✅ **Success indicator:** "All prerequisites met!"
+
+### 2. Bootstrap Cluster (3-5 min)
+```bash
 ./scripts/01-bootstrap.sh
 ```
-✅ **Success indicator:** Dashboard URL displayed
+✅ **Success indicator:** Dashboard URL displayed (https://192.168.1.215:8443)
 
-### 3. Add Hosts (3-4 min)
+### 3. Deploy Storage (3-5 min)
 ```bash
-./scripts/02-add-hosts.sh
+./scripts/03-deploy-osds-lvm.sh
 ```
-✅ **Success indicator:** All 6 hosts listed
-
-### 4. Deploy Storage (3-5 min)
-```bash
-./scripts/03-deploy-osds.sh
-```
-✅ **Success indicator:** OSD tree shows 3 OSDs
+✅ **Success indicator:** OSD tree shows 3 OSDs up
 
 **⏸️ WAIT:** Check cluster health before proceeding
 ```bash
-./scripts/status.sh
+sudo cephadm shell -- ceph -s
 ```
-Look for `HEALTH_OK` - if you see warnings, wait 1-2 more minutes.
+Look for `osd: 3 osds: 3 up, 3 in`
 
-### 5. Create CephFS (2-3 min)
+### 4. Create CephFS (1-2 min)
 ```bash
 ./scripts/04-setup-cephfs.sh
 ```
 ✅ **Success indicator:** Mount instructions displayed
 
-### 6. Test It (1-2 min)
+### 5. Test It (Optional)
 ```bash
-./scripts/test-mount.sh
+sudo apt install ceph-common
+sudo mkdir -p /mnt/cephfs
+sudo mount -t ceph 192.168.1.215:6789:/ /mnt/cephfs \
+  -o name=myfs,secret=AQDzm+9oZwBOChAADcgK7S4gQEq8hpxSa/76DA==
+echo "Hello CephFS!" | sudo tee /mnt/cephfs/test.txt
 ```
-✅ **Success indicator:** "Hello from CephFS!" message
+✅ **Success indicator:** File created successfully
 
 ## 🎉 You're Done!
 
 Access your cluster:
-- **Dashboard:** https://172.20.0.10:8443 (admin/admin123)
-- **Shell:** `./scripts/shell.sh`
-- **Status:** `./scripts/status.sh`
+- **Dashboard:** https://192.168.1.215:8443 (admin/admin123)
+- **Shell:** `sudo cephadm shell`
+- **Status:** `sudo cephadm shell -- ceph -s`
 
 ## 🔧 Quick Commands
 
 ```bash
 # Check everything
-./scripts/status.sh
+sudo cephadm shell -- ceph -s
+sudo cephadm shell -- ceph osd tree
 
 # Interactive Ceph shell
-./scripts/shell.sh
+sudo cephadm shell
 
-# Access test client
-docker exec -it ceph-client bash
+# Access mounted CephFS
 cd /mnt/cephfs
 
 # Reset everything
@@ -75,23 +73,22 @@ cd /mnt/cephfs
 
 ## ❓ Troubleshooting
 
-**Containers won't start?**
+**Prerequisites fail?**
 ```bash
-docker compose down
-docker compose up -d
+# Fix reported issues and re-run
+./scripts/00-prerequisites.sh
 ```
 
 **Cluster not healthy?**
 ```bash
-./scripts/shell.sh
-ceph health detail
+sudo cephadm shell -- ceph health detail
 ```
 Usually just needs more time - wait 2 minutes and check again.
 
 **Script fails?**
 - Check if previous step completed successfully
-- Verify all containers are running: `docker compose ps`
-- Check logs: `docker logs ceph-mon1`
+- Check logs: `sudo journalctl -u 'ceph*' -f`
+- Verify SSH works: `ssh localhost echo test`
 
 ## 📖 Learn More
 
@@ -103,4 +100,4 @@ See [README.md](README.md) for:
 
 ---
 
-**Total Time:** ~15 minutes | **Difficulty:** Beginner-friendly
+**Total Time:** ~15 minutes | **Difficulty:** Beginner-friendly | **Setup:** Single-node cephadm

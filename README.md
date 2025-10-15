@@ -1,127 +1,113 @@
 # CephFS Learning Environment
 
-A complete Docker-based setup for learning CephFS with a multi-node Ceph cluster.
+A complete cephadm-based setup for learning CephFS with a single-node Ceph cluster.
 
 ## 📋 Overview
 
 This environment provides:
-- **3 Monitor/Manager nodes** (mon1, mon2, mon3)
-- **3 OSD (Object Storage Daemon) nodes** (osd1, osd2, osd3)
+- **Single-node Ceph cluster** (all components on one host)
+- **1 Monitor + 1 Manager** (MON/MGR daemons)
+- **3 OSDs** using LVM volumes (2GB each)
 - **Automated setup scripts** for easy deployment
 - **CephFS filesystem** ready for testing
+- **No Docker Compose** - uses cephadm orchestration
 
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Ceph Cluster                         │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  Monitors/Managers:          OSDs (Storage):           │
-│  ┌──────┐ ┌──────┐ ┌──────┐  ┌──────┐ ┌──────┐ ┌──────┐│
-│  │ mon1 │ │ mon2 │ │ mon3 │  │ osd1 │ │ osd2 │ │ osd3 ││
-│  └──────┘ └──────┘ └──────┘  └──────┘ └──────┘ └──────┘│
-│  172.20  172.20  172.20     172.20  172.20  172.20    │
-│    .10     .11     .12        .20     .21     .22      │
-│                                                         │
-│                    CephFS Layer                         │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │  Metadata Servers (MDS) + Data Pools            │   │
-│  └─────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────┐
+│         Single Host (PanDeMongo)                 │
+│         IP: 192.168.1.215                        │
+├──────────────────────────────────────────────────┤
+│                                                  │
+│  ┌─────────────┐  ┌─────────────┐              │
+│  │   MON       │  │   MGR       │              │
+│  │  (Monitor)  │  │  (Manager)  │              │
+│  └─────────────┘  └─────────────┘              │
+│                                                  │
+│  ┌──────┐  ┌──────┐  ┌──────┐                  │
+│  │ OSD.0│  │ OSD.1│  │ OSD.2│                  │
+│  │ 2GB  │  │ 2GB  │  │ 2GB  │                  │
+│  │ LVM  │  │ LVM  │  │ LVM  │                  │
+│  └──────┘  └──────┘  └──────┘                  │
+│                                                  │
+│  ┌──────────────────────────────┐              │
+│  │  MDS (Metadata Servers)      │              │
+│  │  CephFS: myfs                │              │
+│  └──────────────────────────────┘              │
+└──────────────────────────────────────────────────┘
 ```
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
+- Ubuntu 20.04+ (or similar Linux distribution)
 - At least 4GB RAM available
-- 10GB free disk space (actual usage ~8GB)
+- 10GB free disk space (actual usage ~6GB)
+- Podman or Docker installed
+- Python3 installed
+- LVM tools installed
 
-### Install Docker (Ubuntu 24.04)
+### Prerequisites Check
 
-If Docker isn't installed:
+Run the automated prerequisites check:
 
 ```bash
-# Install Docker and Compose
-sudo apt update
-sudo apt install -y docker.io docker-compose-v2
-
-# Start Docker
-sudo systemctl start docker
-sudo systemctl enable docker
-
-# Add your user to docker group
-sudo usermod -aG docker $USER
-newgrp docker
-
-# Verify
-docker --version
-docker compose version
+cd ceph-test
+chmod +x scripts/*.sh
+./scripts/00-prerequisites.sh
 ```
+
+This will:
+- Check/install required packages
+- Configure SSH for localhost
+- Set up passwordless sudo
+- Verify all requirements
 
 ### Step-by-Step Setup
 
-#### 1. Bootstrap the Cluster (Phase 1)
+#### 1. Bootstrap the Cluster
 
-**Note:** With cephadm, you don't need docker-compose. Cephadm runs on the HOST and manages containers itself.
-
-This initializes the first monitor and manager:
+This initializes the monitor and manager:
 
 ```bash
-chmod +x scripts/*.sh
 ./scripts/01-bootstrap.sh
 ```
 
 **What this does:**
-- Installs `cephadm` on mon1
+- Installs `cephadm` on your host
 - Creates the initial monitor daemon
 - Creates the initial manager daemon
-- Sets up the Ceph dashboard (accessible at https://172.20.0.10:8443)
+- Sets up the Ceph dashboard (accessible at https://192.168.1.215:8443)
 
 **Expected output:** Bootstrap completion message with dashboard credentials
 
-**Wait time:** ~2 minutes
+**Wait time:** ~3-5 minutes
 
-#### 3. Add Hosts to Cluster (Phase 2a)
+#### 2. Deploy OSDs (Storage)
 
 ```bash
-./scripts/02-add-hosts.sh
+./scripts/03-deploy-osds-lvm.sh
 ```
 
 **What this does:**
-- Installs SSH on all nodes
-- Configures SSH keys for cephadm
-- Adds mon2, mon3, osd1, osd2, osd3 to the cluster
-- Labels hosts appropriately
-
-**Expected output:** Confirmation that all hosts are added
-
-**Wait time:** ~3 minutes
-
-#### 4. Deploy OSDs (Phase 2b)
-
-```bash
-./scripts/03-deploy-osds.sh
-```
-
-**What this does:**
-- Creates loop devices (virtual disks) on each OSD node
-- Deploys OSD daemons on available devices
+- Creates 3 x 2GB LVM volumes
+- Deploys OSD daemons on the LVM volumes
 - Initializes the storage layer
 
-**Expected output:** OSD tree showing deployed OSDs
+**Expected output:** OSD tree showing 3 deployed OSDs
 
 **Wait time:** ~3-5 minutes
 
 **Verify OSDs are up:**
 ```bash
-./scripts/status.sh
+sudo cephadm shell -- ceph -s
 ```
 
-Look for `HEALTH_OK` status and all OSDs showing as `up`.
+Look for `osd: 3 osds: 3 up, 3 in` status.
 
-#### 5. Setup CephFS (Phase 3)
+#### 3. Setup CephFS
 
 ```bash
 ./scripts/04-setup-cephfs.sh
@@ -135,30 +121,37 @@ Look for `HEALTH_OK` status and all OSDs showing as `up`.
 
 **Expected output:** CephFS status and mount instructions
 
-**Wait time:** ~2 minutes
+**Wait time:** ~1-2 minutes
 
-#### 6. Test CephFS Mount
+#### 4. Mount CephFS (Optional)
+
+On your local machine or remote servers:
 
 ```bash
-./scripts/test-mount.sh
+# Install ceph-common
+sudo apt install ceph-common
+
+# Mount CephFS
+sudo mkdir -p /mnt/cephfs
+sudo mount -t ceph 192.168.1.215:6789:/ /mnt/cephfs \
+  -o name=myfs,secret=AQDzm+9oZwBOChAADcgK7S4gQEq8hpxSa/76DA==
+
+# Test it
+echo "Hello CephFS!" | sudo tee /mnt/cephfs/test.txt
 ```
 
-**What this does:**
-- Creates a test client container
-- Mounts CephFS
-- Performs read/write tests
-
-## 🛠️ Helper Scripts
+## 🛠️ Helper Commands
 
 ### Check Cluster Status
 ```bash
-./scripts/status.sh
+sudo cephadm shell -- ceph -s
+sudo cephadm shell -- ceph osd tree
 ```
-Shows overall health, OSD status, monitors, and CephFS status.
+Shows overall health, OSD status, and cluster state.
 
 ### Access Cephadm Shell
 ```bash
-./scripts/shell.sh
+sudo cephadm shell
 ```
 Opens an interactive shell with full Ceph CLI access.
 
@@ -166,13 +159,13 @@ Opens an interactive shell with full Ceph CLI access.
 ```bash
 ./scripts/cleanup.sh
 ```
-**Warning:** Destroys all data and resets the environment.
+**Warning:** Destroys all data, removes LVM volumes, and resets the environment.
 
 ## 📊 Monitoring & Management
 
 ### Ceph Dashboard
 
-Access the web dashboard at: **https://172.20.0.10:8443**
+Access the web dashboard at: **https://192.168.1.215:8443**
 
 - **Username:** admin
 - **Password:** admin123
@@ -181,7 +174,7 @@ Access the web dashboard at: **https://172.20.0.10:8443**
 
 ### Common Commands
 
-Inside the cephadm shell (`./scripts/shell.sh`):
+Inside the cephadm shell (`sudo cephadm shell`):
 
 ```bash
 # Check cluster health
@@ -207,8 +200,8 @@ ceph df
 # View all running daemons
 ceph orch ps
 
-# View host list
-ceph orch host ls
+# List systemd services
+sudo systemctl list-units 'ceph*'
 ```
 
 ## 🔍 Understanding the Components
@@ -247,24 +240,31 @@ ceph fs status myfs
 ### Exercise 2: Test Failover
 Stop one OSD and watch recovery:
 ```bash
-docker stop ceph-osd1
-./scripts/status.sh
-# Wait and observe
-docker start ceph-osd1
+# Get the FSID
+FSID=$(sudo cephadm ls | grep fsid | head -1 | awk '{print $2}' | tr -d '",')  
+
+# Stop an OSD
+sudo systemctl stop ceph-$FSID@osd.0.service
+
+# Watch recovery
+watch -n 1 'sudo cephadm shell -- ceph -s'
+
+# Restart OSD
+sudo systemctl start ceph-$FSID@osd.0.service
 ```
 
 ### Exercise 3: Write Data to CephFS
 ```bash
-docker exec -it ceph-client bash
+# Mount CephFS first (see step 4 above)
 cd /mnt/cephfs
-mkdir test-directory
-echo "Learning CephFS" > test-directory/file.txt
+sudo mkdir test-directory
+echo "Learning CephFS" | sudo tee test-directory/file.txt
 ls -lR
 ```
 
 ### Exercise 4: Monitor Performance
 ```bash
-./scripts/shell.sh
+sudo cephadm shell
 ceph osd perf
 ceph osd pool stats
 ```
@@ -300,22 +300,24 @@ ceph health detail
 
 Check OSD logs:
 ```bash
-docker logs ceph-osd1
+sudo journalctl -u 'ceph*osd*' -f
 ```
 
 ### CephFS Mount Fails
 
 Verify MDS is active:
 ```bash
-./scripts/shell.sh
-ceph mds stat
+sudo cephadm shell -- ceph mds stat
+
+# Install ceph-common if needed
+sudo apt install ceph-common
 ```
 
 ### Dashboard Not Accessible
 
 Check manager status:
 ```bash
-docker exec ceph-mon1 cephadm shell -- ceph mgr services
+sudo cephadm shell -- ceph mgr services
 ```
 
 ## 🔄 Reset and Restart
@@ -324,9 +326,10 @@ To completely reset the environment:
 
 ```bash
 ./scripts/cleanup.sh
-docker compose up -d
+./scripts/00-prerequisites.sh
 ./scripts/01-bootstrap.sh
-# ... continue with other scripts
+./scripts/03-deploy-osds-lvm.sh
+./scripts/04-setup-cephfs.sh
 ```
 
 ## 📖 Additional Resources
@@ -357,9 +360,10 @@ After completing the basic setup:
 ## ⚠️ Important Notes
 
 - This is a **learning environment**, not production-ready
-- Uses loop devices instead of real disks
-- Single-host deployment (all containers on one machine)
-- Simplified networking and security
+- Uses LVM volumes backed by loop devices instead of real disks
+- Single-host deployment (all daemons on one machine)
+- Uses `--single-host-defaults` for simplified configuration
+- Simplified security (passwordless sudo, test credentials)
 - No persistent storage across cleanup operations
 
 ---
