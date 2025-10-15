@@ -11,6 +11,7 @@ services:
       - ./config:/etc/ceph
       - ./data/mon1:/var/lib/ceph
       - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - CEPH_DAEMON=mon
       - MON_IP=172.20.0.10
@@ -35,6 +36,7 @@ services:
       - ./config:/etc/ceph
       - ./data/mon2:/var/lib/ceph
       - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - CEPH_DAEMON=mon
       - MON_IP=172.20.0.11
@@ -57,6 +59,7 @@ services:
       - ./config:/etc/ceph
       - ./data/mon3:/var/lib/ceph
       - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - CEPH_DAEMON=mon
       - MON_IP=172.20.0.12
