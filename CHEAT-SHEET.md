@@ -3,33 +3,30 @@
 ## 🚀 Setup Commands (Run in Order)
 
 ```bash
-# 1. Start containers
-docker compose up -d
+# 1. Check prerequisites and setup passwordless sudo
+./scripts/00-prerequisites.sh
 
-# 2. Bootstrap cluster
+# 2. Bootstrap cluster (creates MON and MGR)
 ./scripts/01-bootstrap.sh
 
-# 3. Add hosts
-./scripts/02-add-hosts.sh
+# 3. Deploy OSDs with LVM (skip 02-add-hosts.sh for single-node)
+./scripts/03-deploy-osds-lvm.sh
 
-# 4. Deploy OSDs
-./scripts/03-deploy-osds.sh
-
-# 5. Setup CephFS
+# 4. Setup CephFS (creates MDS and filesystem)
 ./scripts/04-setup-cephfs.sh
 
-# 6. Test mount
-./scripts/test-mount.sh
+# 5. Mount on client servers
+./scripts/mount-cephfs-client.sh  # Run on remote servers
 ```
 
 ## 📊 Monitoring Commands
 
 ```bash
 # Quick status check
-./scripts/status.sh
+sudo cephadm shell -- ceph -s
 
-# Enter Ceph shell
-./scripts/shell.sh
+# Enter Ceph shell (interactive)
+sudo cephadm shell
 
 # Inside shell - cluster health
 ceph -s
@@ -136,33 +133,28 @@ ceph auth get-or-create client.<name> mon 'allow r' mds 'allow rw' osd 'allow rw
 ceph auth del client.<name>
 ```
 
-## 🐳 Docker Commands
+## 🔧 Cephadm Service Management
 
 ```bash
-# View running containers
-docker compose ps
+# List all services
+sudo cephadm shell -- ceph orch ps
+sudo cephadm shell -- ceph orch ls
 
-# View logs
-docker logs ceph-mon1
-docker logs ceph-osd1 -f  # Follow logs
+# View service logs
+sudo journalctl -u ceph-*.service -f
 
-# Execute command in container
-docker exec ceph-mon1 <command>
+# Restart a service
+sudo cephadm shell -- ceph orch restart <service-name>
 
-# Interactive shell in container
-docker exec -it ceph-mon1 bash
+# Stop/start daemon
+sudo systemctl stop ceph-<fsid>@<daemon>
+sudo systemctl start ceph-<fsid>@<daemon>
 
-# Restart container
-docker restart ceph-mon1
+# Check systemd services
+sudo systemctl list-units 'ceph*'
 
-# Stop all containers
-docker compose down
-
-# Start all containers
-docker compose up -d
-
-# Remove everything
-docker compose down -v
+# View logs for specific daemon
+sudo cephadm logs --fsid <fsid> --name <daemon-name>
 ```
 
 ## 🔍 Debugging Commands
@@ -188,8 +180,9 @@ ceph versions
 ceph config dump
 ceph config get mon
 
-# Check logs in container
-docker exec ceph-mon1 tail -f /var/log/ceph/ceph.log
+# Check logs
+sudo journalctl -u 'ceph*' -f
+sudo tail -f /var/log/ceph/<fsid>/ceph.log
 ```
 
 ## 📁 CephFS Mount Commands
@@ -197,13 +190,17 @@ docker exec ceph-mon1 tail -f /var/log/ceph/ceph.log
 ### Kernel Mount (Linux)
 ```bash
 # Get the secret key
-SECRET=$(docker exec ceph-mon1 cephadm shell -- ceph auth get-key client.admin)
+SECRET=$(sudo cephadm shell -- ceph auth get-key client.myfs)
 
-# Mount
-sudo mount -t ceph 172.20.0.10:6789:/ /mnt/cephfs -o name=admin,secret=$SECRET
+# Mount using client credentials
+sudo mount -t ceph 192.168.1.215:6789:/ /mnt/cephfs \
+  -o name=myfs,secret=AQDzm+9oZwBOChAADcgK7S4gQEq8hpxSa/76DA==
 
-# Or using keyring file
-sudo mount -t ceph 172.20.0.10:6789:/ /mnt/cephfs -o name=admin,secretfile=/etc/ceph/admin.secret
+# Or using secretfile (more secure)
+echo "AQDzm+9oZwBOChAADcgK7S4gQEq8hpxSa/76DA==" | sudo tee /etc/ceph/myfs.secret
+sudo chmod 600 /etc/ceph/myfs.secret
+sudo mount -t ceph 192.168.1.215:6789:/ /mnt/cephfs \
+  -o name=myfs,secretfile=/etc/ceph/myfs.secret,noatime
 
 # Unmount
 sudo umount /mnt/cephfs
@@ -211,24 +208,23 @@ sudo umount /mnt/cephfs
 
 ### FUSE Mount
 ```bash
+# Install ceph-fuse
+sudo apt install ceph-fuse
+
 # Mount with ceph-fuse
-ceph-fuse -m 172.20.0.10:6789 /mnt/cephfs
+sudo ceph-fuse /mnt/cephfs --name client.myfs
 
 # Unmount
-fusermount -u /mnt/cephfs
+sudo fusermount -u /mnt/cephfs
 ```
 
-### In Test Client Container
+### Persistent Mount (/etc/fstab)
 ```bash
-# Access client
-docker exec -it ceph-client bash
+# Add to /etc/fstab
+192.168.1.215:6789:/  /mnt/cephfs  ceph  name=myfs,secretfile=/etc/ceph/myfs.secret,noatime,_netdev  0  2
 
-# CephFS is already mounted at
-cd /mnt/cephfs
-
-# Test operations
-echo "test" > /mnt/cephfs/file.txt
-ls -la /mnt/cephfs/
+# Mount all from fstab
+sudo mount -a
 ```
 
 ## 🧪 Testing Commands
@@ -264,39 +260,49 @@ ceph -s
 
 ### Add New OSD
 ```bash
-# Create storage device in container
-docker exec osd1 dd if=/dev/zero of=/var/lib/ceph/new-osd.img bs=1M count=10240
-docker exec osd1 losetup -f /var/lib/ceph/new-osd.img
+# Create backing file and LVM volume
+sudo dd if=/dev/zero of=/var/lib/ceph-osd-4.img bs=1M count=2048
+LOOP_DEV=$(sudo losetup -f)
+sudo losetup $LOOP_DEV /var/lib/ceph-osd-4.img
+sudo pvcreate $LOOP_DEV
+sudo vgcreate ceph-vg-4 $LOOP_DEV
+sudo lvcreate -l 100%FREE -n osd-lv-4 ceph-vg-4
 
 # Deploy OSD
-docker exec ceph-mon1 cephadm shell -- ceph orch daemon add osd osd1:/dev/loop1
+sudo cephadm shell -- ceph orch daemon add osd $(hostname):/dev/ceph-vg-4/osd-lv-4
 ```
 
 ### Simulate Failure
 ```bash
-# Stop an OSD
-docker stop ceph-osd1
+# Stop an OSD service
+sudo systemctl stop ceph-<fsid>@osd.0.service
 
 # Watch recovery
-watch -n 1 './scripts/status.sh'
+watch -n 1 'sudo cephadm shell -- ceph -s'
 
 # Restart OSD
-docker start ceph-osd1
+sudo systemctl start ceph-<fsid>@osd.0.service
 ```
 
 ### Reset Everything
 ```bash
+# Complete cleanup (removes cluster, LVM, sudo config)
 ./scripts/cleanup.sh
-docker-compose up -d
+
+# Start fresh
+./scripts/00-prerequisites.sh
 ./scripts/01-bootstrap.sh
-# Continue with other scripts...
+./scripts/03-deploy-osds-lvm.sh
+./scripts/04-setup-cephfs.sh
 ```
 
 ## 📊 Dashboard Access
 
-- **URL:** https://172.20.0.10:8443
+- **URL:** https://192.168.1.215:8443 (or https://PanDeMongo:8443)
 - **Username:** admin
 - **Password:** admin123
+
+**Note:** Accept the self-signed certificate warning in your browser.
 
 ## 🆘 Emergency Commands
 
@@ -320,13 +326,23 @@ ceph pg repair <pg-id>
 
 ## 💡 Pro Tips
 
-1. **Always check status** before and after operations
+1. **Always check status** before and after operations: `sudo cephadm shell -- ceph -s`
 2. **Wait for HEALTH_OK** before proceeding to next phase
 3. **Use `ceph -w`** to watch cluster in real-time
-4. **Check logs** when things go wrong
+4. **Check logs** with `sudo journalctl -u 'ceph*' -f`
 5. **Be patient** - Ceph operations can take time
+6. **LVM volumes** are used for OSDs (not raw loop devices)
+7. **Passwordless sudo** is required for cephadm operations
+8. **Single-node setup** uses `--single-host-defaults` for testing
 
 ## 📚 Quick Reference
+
+### Current Setup
+- **Cluster FSID:** 15320132-a9c6-11f0-960a-91f76456ea36
+- **Host:** PanDeMongo (192.168.1.215)
+- **OSDs:** 3 x 2GB LVM volumes
+- **Filesystem:** myfs
+- **Client Key:** AQDzm+9oZwBOChAADcgK7S4gQEq8hpxSa/76DA==
 
 | Component | Port | Purpose |
 |-----------|------|---------|
