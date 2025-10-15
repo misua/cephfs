@@ -109,14 +109,15 @@ fi
 if [ ! -f ~/.ssh/authorized_keys ]; then
     echo "  Creating authorized_keys file..."
     touch ~/.ssh/authorized_keys
-    chmod 600 ~/.ssh/authorized_keys
 fi
+
+# Ensure correct permissions on authorized_keys
+chmod 600 ~/.ssh/authorized_keys
 
 # Add public key to authorized_keys if not already there
 if ! grep -q "$(cat ~/.ssh/id_rsa.pub)" ~/.ssh/authorized_keys 2>/dev/null; then
     echo "  Adding public key to authorized_keys..."
     cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
-    chmod 600 ~/.ssh/authorized_keys
     print_status 0 "Public key added to authorized_keys"
 else
     print_status 0 "Public key already in authorized_keys"
