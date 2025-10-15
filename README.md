@@ -62,19 +62,9 @@ docker compose version
 
 ### Step-by-Step Setup
 
-#### 1. Start the Containers
+#### 1. Bootstrap the Cluster (Phase 1)
 
-```bash
-cd ceph-test
-docker compose up -d
-```
-
-Wait for all containers to be running:
-```bash
-docker compose ps
-```
-
-#### 2. Bootstrap the Cluster (Phase 1)
+**Note:** With cephadm, you don't need docker-compose. Cephadm runs on the HOST and manages containers itself.
 
 This initializes the first monitor and manager:
 

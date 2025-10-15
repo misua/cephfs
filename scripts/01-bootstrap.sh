@@ -1,36 +1,31 @@
 #!/bin/bash
 # Phase 1: Bootstrap the Ceph Cluster
-# This script initializes the first monitor and manager
+# This script runs cephadm on the HOST to bootstrap the cluster
 
 set -e
 
 echo "=== Phase 1: Bootstrapping Ceph Cluster ==="
 echo ""
 
-# Check if containers are running
-if ! docker ps | grep -q ceph-mon1; then
-    echo "Error: Containers are not running. Please run 'docker-compose up -d' first."
-    exit 1
-fi
-
-echo "Step 1: Installing Docker and cephadm in mon1 container..."
-docker exec ceph-mon1 bash -c "
-    # Install Docker CLI inside container
-    apt-get update -qq
-    apt-get install -y -qq docker.io curl
-    
-    # Download cephadm
+# Check if cephadm is installed on host
+if ! command -v cephadm &> /dev/null; then
+    echo "Step 1: Installing cephadm on HOST..."
     curl --silent --remote-name --location https://github.com/ceph/ceph/raw/quincy/src/cephadm/cephadm
     chmod +x cephadm
-    mv cephadm /usr/local/bin/
-"
+    sudo mv cephadm /usr/local/bin/
+    echo "cephadm installed successfully!"
+else
+    echo "Step 1: cephadm already installed on HOST"
+fi
 
 echo ""
-echo "Step 2: Bootstrapping the cluster on mon1..."
+echo "Step 2: Bootstrapping the cluster..."
 echo "This will create the initial monitor and manager daemons."
+echo "Note: This runs on the HOST and will create new containers managed by cephadm."
 echo ""
 
-docker exec ceph-mon1 cephadm bootstrap \
+# Bootstrap on the host - cephadm will create its own containers
+sudo cephadm bootstrap \
     --mon-ip 172.20.0.10 \
     --initial-dashboard-user admin \
     --initial-dashboard-password admin123 \
