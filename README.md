@@ -35,9 +35,30 @@ This environment provides:
 
 ### Prerequisites
 
-- Docker and Docker Compose installed
 - At least 4GB RAM available
 - 10GB free disk space (actual usage ~8GB)
+
+### Install Docker (Ubuntu 24.04)
+
+If Docker isn't installed:
+
+```bash
+# Install Docker and Compose
+sudo apt update
+sudo apt install -y docker.io docker-compose-v2
+
+# Start Docker
+sudo systemctl start docker
+sudo systemctl enable docker
+
+# Add your user to docker group
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Verify
+docker --version
+docker compose version
+```
 
 ### Step-by-Step Setup
 
@@ -45,12 +66,12 @@ This environment provides:
 
 ```bash
 cd ceph-test
-docker-compose up -d
+docker compose up -d
 ```
 
 Wait for all containers to be running:
 ```bash
-docker-compose ps
+docker compose ps
 ```
 
 #### 2. Bootstrap the Cluster (Phase 1)
@@ -313,7 +334,7 @@ To completely reset the environment:
 
 ```bash
 ./scripts/cleanup.sh
-docker-compose up -d
+docker compose up -d
 ./scripts/01-bootstrap.sh
 # ... continue with other scripts
 ```

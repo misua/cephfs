@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Monitor and Manager Node 1 (Bootstrap Node)
   mon1:

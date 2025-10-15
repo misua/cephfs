@@ -15,7 +15,7 @@ fi
 
 echo ""
 echo "Step 1: Stopping and removing containers..."
-docker-compose down -v
+docker compose down -v
 
 echo ""
 echo "Step 2: Removing data directories..."
@@ -34,6 +34,6 @@ echo ""
 echo "=== Cleanup Complete! ==="
 echo ""
 echo "You can now start fresh with:"
-echo "  docker-compose up -d"
+echo "  docker compose up -d"
 echo "  ./scripts/01-bootstrap.sh"
 echo ""

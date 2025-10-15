@@ -4,7 +4,7 @@
 
 ```bash
 # 1. Start containers
-docker-compose up -d
+docker compose up -d
 
 # 2. Bootstrap cluster
 ./scripts/01-bootstrap.sh
@@ -140,7 +140,7 @@ ceph auth del client.<name>
 
 ```bash
 # View running containers
-docker-compose ps
+docker compose ps
 
 # View logs
 docker logs ceph-mon1
@@ -156,13 +156,13 @@ docker exec -it ceph-mon1 bash
 docker restart ceph-mon1
 
 # Stop all containers
-docker-compose down
+docker compose down
 
 # Start all containers
-docker-compose up -d
+docker compose up -d
 
 # Remove everything
-docker-compose down -v
+docker compose down -v
 ```
 
 ## 🔍 Debugging Commands

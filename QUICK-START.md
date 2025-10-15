@@ -8,8 +8,8 @@ Get a working CephFS cluster in ~15 minutes.
 ### 1. Start Containers (1 min)
 ```bash
 cd ceph-test
-docker-compose up -d
-docker-compose ps  # Verify all 6 containers are running
+docker compose up -d
+docker compose ps  # Verify all 6 containers are running
 ```
 
 ### 2. Bootstrap Cluster (2-3 min)
@@ -77,8 +77,8 @@ cd /mnt/cephfs
 
 **Containers won't start?**
 ```bash
-docker-compose down
-docker-compose up -d
+docker compose down
+docker compose up -d
 ```
 
 **Cluster not healthy?**
@@ -90,7 +90,7 @@ Usually just needs more time - wait 2 minutes and check again.
 
 **Script fails?**
 - Check if previous step completed successfully
-- Verify all containers are running: `docker-compose ps`
+- Verify all containers are running: `docker compose ps`
 - Check logs: `docker logs ceph-mon1`
 
 ## 📖 Learn More
