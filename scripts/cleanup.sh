@@ -14,26 +14,34 @@ if [ "$confirm" != "yes" ]; then
 fi
 
 echo ""
-echo "Step 1: Stopping and removing containers..."
-docker compose down -v
+echo "Step 1: Getting cluster FSID..."
+FSID=$(sudo cephadm ls 2>/dev/null | grep fsid | head -1 | awk '{print $2}' | tr -d '",')
+
+if [ -n "$FSID" ]; then
+    echo "Found cluster FSID: $FSID"
+    echo ""
+    echo "Step 2: Removing Ceph cluster..."
+    sudo cephadm rm-cluster --fsid $FSID --force
+else
+    echo "No cluster found, skipping cluster removal"
+fi
 
 echo ""
-echo "Step 2: Removing data directories..."
-sudo rm -rf data/mon1/* data/mon2/* data/mon3/* data/osd1/* data/osd2/* data/osd3/*
+echo "Step 3: Removing loop devices..."
+sudo losetup -a | grep ceph-osd | cut -d: -f1 | xargs -r sudo losetup -d
 
 echo ""
-echo "Step 3: Removing config files..."
-rm -rf config/*
+echo "Step 4: Removing OSD image files..."
+sudo rm -f /var/lib/ceph-osd-*.img
 
 echo ""
-echo "Step 4: Removing test client (if exists)..."
-docker stop ceph-client 2>/dev/null || true
-docker rm ceph-client 2>/dev/null || true
+echo "Step 5: Removing ceph directories..."
+sudo rm -rf /etc/ceph/*
+sudo rm -rf /var/lib/ceph/*
 
 echo ""
 echo "=== Cleanup Complete! ==="
 echo ""
 echo "You can now start fresh with:"
-echo "  docker compose up -d"
 echo "  ./scripts/01-bootstrap.sh"
 echo ""
