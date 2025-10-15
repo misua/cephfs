@@ -1,0 +1,13 @@
+# Ceph data directories
+data/*/
+
+# Ceph configuration files (may contain secrets)
+config/*
+!config/.gitkeep
+
+# Temporary files
+*.tmp
+*.log
+
+# Docker volumes
+.volumes/

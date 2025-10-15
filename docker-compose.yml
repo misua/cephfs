@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  # Monitor and Manager Node 1 (Bootstrap Node)
+  mon1:
+    image: quay.io/ceph/ceph:v18
+    container_name: ceph-mon1
+    hostname: mon1
+    networks:
+      ceph-network:
+        ipv4_address: 172.20.0.10
+    volumes:
+      - ./config:/etc/ceph
+      - ./data/mon1:/var/lib/ceph
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - CEPH_DAEMON=mon
+      - MON_IP=172.20.0.10
+      - CEPH_PUBLIC_NETWORK=172.20.0.0/16
+    privileged: true
+    pid: host
+    command: sleep infinity
+    ports:
+      - "6789:6789"
+      - "3300:3300"
+      - "8443:8443"
+
+  # Monitor and Manager Node 2
+  mon2:
+    image: quay.io/ceph/ceph:v18
+    container_name: ceph-mon2
+    hostname: mon2
+    networks:
+      ceph-network:
+        ipv4_address: 172.20.0.11
+    volumes:
+      - ./config:/etc/ceph
+      - ./data/mon2:/var/lib/ceph
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - CEPH_DAEMON=mon
+      - MON_IP=172.20.0.11
+      - CEPH_PUBLIC_NETWORK=172.20.0.0/16
+    privileged: true
+    pid: host
+    command: sleep infinity
+    depends_on:
+      - mon1
+
+  # Monitor and Manager Node 3
+  mon3:
+    image: quay.io/ceph/ceph:v18
+    container_name: ceph-mon3
+    hostname: mon3
+    networks:
+      ceph-network:
+        ipv4_address: 172.20.0.12
+    volumes:
+      - ./config:/etc/ceph
+      - ./data/mon3:/var/lib/ceph
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - CEPH_DAEMON=mon
+      - MON_IP=172.20.0.12
+      - CEPH_PUBLIC_NETWORK=172.20.0.0/16
+    privileged: true
+    pid: host
+    command: sleep infinity
+    depends_on:
+      - mon1
+
+  # OSD Node 1
+  osd1:
+    image: quay.io/ceph/ceph:v18
+    container_name: ceph-osd1
+    hostname: osd1
+    networks:
+      ceph-network:
+        ipv4_address: 172.20.0.20
+    volumes:
+      - ./config:/etc/ceph
+      - ./data/osd1:/var/lib/ceph
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - CEPH_DAEMON=osd
+      - CEPH_PUBLIC_NETWORK=172.20.0.0/16
+    privileged: true
+    pid: host
+    command: sleep infinity
+    depends_on:
+      - mon1
+
+  # OSD Node 2
+  osd2:
+    image: quay.io/ceph/ceph:v18
+    container_name: ceph-osd2
+    hostname: osd2
+    networks:
+      ceph-network:
+        ipv4_address: 172.20.0.21
+    volumes:
+      - ./config:/etc/ceph
+      - ./data/osd2:/var/lib/ceph
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - CEPH_DAEMON=osd
+      - CEPH_PUBLIC_NETWORK=172.20.0.0/16
+    privileged: true
+    pid: host
+    command: sleep infinity
+    depends_on:
+      - mon1
+
+  # OSD Node 3
+  osd3:
+    image: quay.io/ceph/ceph:v18
+    container_name: ceph-osd3
+    hostname: osd3
+    networks:
+      ceph-network:
+        ipv4_address: 172.20.0.22
+    volumes:
+      - ./config:/etc/ceph
+      - ./data/osd3:/var/lib/ceph
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - CEPH_DAEMON=osd
+      - CEPH_PUBLIC_NETWORK=172.20.0.0/16
+    privileged: true
+    pid: host
+    command: sleep infinity
+    depends_on:
+      - mon1
+
+networks:
+  ceph-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
