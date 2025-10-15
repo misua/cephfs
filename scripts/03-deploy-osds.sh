@@ -13,8 +13,8 @@ echo "Step 1: Creating loop devices for OSD storage..."
 for i in 1 2 3; do
     echo "Creating storage on osd$i..."
     docker exec ceph-osd$i bash -c "
-        # Create a 10GB file for the OSD
-        dd if=/dev/zero of=/var/lib/ceph/osd-device.img bs=1M count=10240 2>/dev/null
+        # Create a 2GB file for the OSD (sufficient for learning)
+        dd if=/dev/zero of=/var/lib/ceph/osd-device.img bs=1M count=2048 2>/dev/null
         
         # Create loop device
         losetup -f /var/lib/ceph/osd-device.img || true

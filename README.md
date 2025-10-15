@@ -36,8 +36,8 @@ This environment provides:
 ### Prerequisites
 
 - Docker and Docker Compose installed
-- At least 8GB RAM available
-- 50GB free disk space
+- At least 4GB RAM available
+- 10GB free disk space (actual usage ~8GB)
 
 ### Step-by-Step Setup
 
